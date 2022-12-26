@@ -112,6 +112,64 @@ app.post("/auth/sign-up", async (req, res) => {
     );
 });
 
+app.post("/auth/sign-in", async (req, res) => {
+  let error = {};
+
+  if (!req.body.email)
+    error.email = [...(error.email ?? []), "email can't be empty"];
+  if (!req.body.password)
+    error.password = [...(error.password ?? []), "password can't be empty"];
+
+  if (error.email || error.password)
+    return res.status(400).send(createResponse(400, null, error));
+
+  const [records, fields] = await db
+    .promise()
+    .execute("SELECT id, email, password FROM `users` WHERE email = ?", [
+      req.body.email,
+    ]);
+
+  if (!records.length)
+    return res.status(400).json(
+      createResponse(400, null, {
+        email: [...(error.email ?? []), "no account was use this email"],
+      })
+    );
+
+  const isPasswordMatched = await bcrypt.compare(
+    req.body.password,
+    records[0].password
+  );
+
+  if (!isPasswordMatched) {
+    return res.status(401).send(
+      createResponse(401, null, {
+        password: [...(error.password ?? []), "password didn't match"],
+      })
+    );
+  }
+
+  const jwtToken = await createJwtTokenClaim(records[0].id, records[0].email);
+  const serializedCookie = serialize("token", jwtToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    maxAge: 60 * 60 * 24 * 30,
+    path: "/",
+  });
+
+  res.setHeader("Set-Cookie", serializedCookie);
+  res
+    .status(201)
+    .json(
+      createResponse(
+        201,
+        { user_id: records[0].id, email: records[0].email, token: jwtToken },
+        null
+      )
+    );
+});
+
 // launcher
 app.listen(port, function () {
   console.log(`running server from port ${port}`);
