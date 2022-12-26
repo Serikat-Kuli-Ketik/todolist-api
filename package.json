@@ -20,7 +20,8 @@
     "http-status-enum": "^1.0.2",
     "jsonwebtoken": "^9.0.0",
     "jwt-claims": "^1.0.1",
-    "mysql2": "^2.3.3"
+    "mysql2": "^2.3.3",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.20"
