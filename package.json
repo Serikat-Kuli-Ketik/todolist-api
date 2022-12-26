@@ -1,5 +1,6 @@
 {
   "name": "todolist-api",
+  "type": "module",
   "version": "1.0.0",
   "description": "Urgent, temporary production api.",
   "main": "index.js",
@@ -7,10 +8,15 @@
   "author": "Hamdan Yuwafi <yuwafi.hamdan365@gmail.com>",
   "license": "MIT",
   "private": false,
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
   "dependencies": {
     "bcrypt": "^5.1.0",
     "cookie-parser": "^1.4.6",
     "express": "^4.18.2",
+    "http-status-enum": "^1.0.2",
     "jsonwebtoken": "^9.0.0",
     "jwt-claims": "^1.0.1",
     "mysql2": "^2.3.3"
