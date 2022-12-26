@@ -170,6 +170,26 @@ app.post("/auth/sign-in", async (req, res) => {
     );
 });
 
+app.get("/auth/sign-out", (req, res) => {
+  const { cookies } = req;
+
+  const jwt = cookies.token;
+
+  if (!jwt) {
+    return res.status(401).json(createResponse(401, null, null));
+  }
+
+  const serialized = serialize("token", null, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    maxAge: -1,
+    path: "/",
+  });
+  res.setHeader("Set-Cookie", serialized);
+  res.status(200).json(createResponse(200, null, null));
+});
+
 // launcher
 app.listen(port, function () {
   console.log(`running server from port ${port}`);
