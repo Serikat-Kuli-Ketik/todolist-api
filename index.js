@@ -87,6 +87,13 @@ app.post("/auth/sign-up", async (req, res) => {
         req.body.email,
         hashedPassword,
       ]);
+
+      db.execute("INSERT INTO labels (id, user_id, title, color) VALUES ?", [
+        [uuid.v4(), userID, "Backlog", "#B0B0B0"][
+          (uuid.v4(), userID, "WIP", "#3C5FFA")
+        ],
+        [uuid.v4(), userID, "Done", "#48FA48"],
+      ]);
       return;
     }
   );
