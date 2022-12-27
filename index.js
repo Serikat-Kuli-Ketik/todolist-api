@@ -1,6 +1,6 @@
 import cookieParser from "cookie-parser";
 import express from "express";
-import HTTP_STATUS_CODES from "http-status-enum";
+import httpCode from "http-status-codes";
 import dotenv from "dotenv";
 import mysql from "mysql2";
 import jwt from "jsonwebtoken";
@@ -23,7 +23,7 @@ const db = mysql.createConnection({
 // utils
 function createResponse(status, data, error) {
   return {
-    meta: { code: status, message: HTTP_STATUS_CODES[status] },
+    meta: { code: status, message: httpCode.getStatusText(status) },
     data: data,
     error: error,
   };
@@ -170,16 +170,27 @@ app.post("/auth/sign-in", async (req, res) => {
     );
 });
 
-app.get("/auth/sign-out", (req, res) => {
+async function authorize(req, res, next) {
   const { cookies } = req;
 
-  const jwt = cookies.token;
-
-  if (!jwt) {
-    return res.status(401).json(createResponse(401, null, null));
+  const token = cookies.token;
+  if (!token) {
+    res.status(401).send(createResponse(401, null, null));
+    return;
   }
 
-  const serialized = serialize("token", null, {
+  const isJWTValid = await jwt.verify(token, process.env.JWT_SECRET);
+
+  if (!isJWTValid) {
+    res.status(401).send(createResponse(401, null, null));
+    return;
+  }
+
+  next();
+}
+
+app.get("/auth/sign-out", authorize, (req, res) => {
+  const serialized = serialize("token", "", {
     httpOnly: true,
     secure: true,
     sameSite: "none",
@@ -188,6 +199,88 @@ app.get("/auth/sign-out", (req, res) => {
   });
   res.setHeader("Set-Cookie", serialized);
   res.status(200).json(createResponse(200, null, null));
+});
+
+app.get("/labels", authorize, async (req, res) => {
+  const jwtToken = req.cookies.token;
+  const claims = jwt.decode(jwtToken);
+
+  const [results] = await db
+    .promise()
+    .execute("SELECT id, title, color FROM labels WHERE user_id = ?", [
+      claims.jti,
+    ]);
+
+  res.status(200).json(createResponse(200, results, null));
+});
+
+app.post("/labels", authorize, async (req, res) => {
+  const jwtToken = req.cookies.token;
+  const claims = jwt.decode(jwtToken);
+  const labelID = uuid.v4();
+
+  const [] = await db
+    .promise()
+    .execute(
+      "INSERT INTO labels (id, user_id, title, color) VALUES (?, ?, ?, ?)",
+      [labelID, claims.jti, req.body.title, req.body.color]
+    );
+
+  res.status(201).json(createResponse(201, { id: labelID }, null));
+});
+
+app.get("/labels/:label_id", authorize, async (req, res) => {
+  const jwtToken = req.cookies.token;
+  const claims = jwt.decode(jwtToken);
+  const labelID = req.params.label_id;
+
+  const [results] = await db
+    .promise()
+    .execute(
+      "SELECT id, title, color FROM labels WHERE user_id = ? and id = ?",
+      [claims.jti, labelID]
+    );
+
+  if (!results.length) {
+    res.status(404).json(createResponse(404, null, null));
+    return;
+  }
+
+  res.status(200).json(createResponse(200, results, null));
+});
+
+app.put("/labels/:label_id", authorize, async (req, res) => {
+  const labelID = req.params.label_id;
+
+  const [results] = await db
+    .promise()
+    .execute("UPDATE labels SET title = ?, color = ? WHERE id = ?", [
+      req.body.title,
+      req.body.color,
+      labelID,
+    ]);
+
+  if (!results.changedRows) {
+    res.status(404).json(createResponse(404, null, null));
+    return;
+  }
+
+  res.status(204).send();
+});
+
+app.delete("/labels/:label_id", authorize, async (req, res) => {
+  const labelID = req.params.label_id;
+
+  const [results] = await db
+    .promise()
+    .execute("DELETE FROM labels WHERE id = ?", [labelID]);
+
+  if (!results.changedRows) {
+    res.status(404).json(createResponse(404, null, null));
+    return;
+  }
+
+  res.status(204).send();
 });
 
 // launcher
